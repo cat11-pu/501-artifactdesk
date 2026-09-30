@@ -1,0 +1,60 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { field, safeNext } from '../lib/auth';
+
+export const prerender = false;
+
+const next = safeNext(Astro.url.searchParams.get('next'));
+if (Astro.locals.user) return Astro.redirect(next);
+
+let error =
+  Astro.url.searchParams.get('confirm') === 'failed'
+    ? 'We couldn’t use that confirmation link here. Your email may already be confirmed, so try signing in.'
+    : '';
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  email = field(form, 'email').toLowerCase();
+  const password = form.get('password');
+
+  const supabase = Astro.locals.supabase;
+  if (!supabase) {
+    error = 'Sign-in needs Supabase keys in .env.local. See the README.';
+  } else if (!email || typeof password !== 'string' || !password) {
+    error = 'Enter your email and password.';
+  } else {
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (!authError) return Astro.redirect(next);
+    error =
+      authError.code === 'email_not_confirmed'
+        ? 'Confirm your email first. Check your Yale inbox for the link.'
+        : 'That email and password don’t match an account.';
+  }
+}
+---
+
+<BaseLayout title="Sign in">
+  <section class="page auth-page">
+    <div class="slash" aria-hidden="true"></div>
+    <div class="auth-body">
+      <h2>Sign in</h2>
+      <form method="post" class="form" novalidate>
+        <label class="field">
+          <span class="label">Email</span>
+          <input class="input" type="email" name="email" value={email} autocomplete="username" required />
+        </label>
+        <label class="field">
+          <span class="label">Catalyst password</span>
+          <input class="input" type="password" name="password" autocomplete="current-password" required />
+          <span class="field-hint">The password you made for this site, not your Yale NetID password.</span>
+        </label>
+        {error && <p class="form-error" role="alert">{error}</p>}
+        <div>
+          <button type="submit" class="btn btn--primary">Sign in</button>
+        </div>
+      </form>
+      <p class="form-note">New here? <a href={`/signup${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`}>Create an account</a></p>
+    </div>
+  </section>
+</BaseLayout>

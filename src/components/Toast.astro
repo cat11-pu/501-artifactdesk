@@ -1,0 +1,45 @@
+---
+// A short confirmation that disappears after 4 seconds (DESIGN.md §7, Toasts).
+interface Props {
+  message: string | null;
+  /** URL params that produced the message, dropped so a refresh doesn't show it again. */
+  clear?: string[];
+}
+const { message, clear = ['added', 'amount'] } = Astro.props;
+---
+
+{message && <div class="toast" role="status" data-toast data-clear={clear.join(',')}>{message}</div>}
+
+<script>
+  const toast = document.querySelector<HTMLElement>('[data-toast]');
+  if (toast) {
+    setTimeout(() => toast.remove(), 4000);
+    const url = new URL(location.href);
+    for (const name of (toast.dataset.clear ?? '').split(',')) url.searchParams.delete(name);
+    history.replaceState(null, '', url);
+  }
+</script>
+
+<style>
+  .toast {
+    position: fixed;
+    right: var(--space-5);
+    bottom: var(--space-5);
+    max-width: calc(100% - 2 * var(--space-4));
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg);
+    border: 1px solid var(--color-slash);
+    border-radius: var(--radius);
+    color: var(--color-text);
+    font-size: var(--text-small);
+    font-weight: 500;
+  }
+  @media (max-width: 720px) {
+    .toast {
+      right: auto;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: var(--space-4);
+    }
+  }
+</style>
